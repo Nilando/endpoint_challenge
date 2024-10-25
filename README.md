@@ -7,6 +7,7 @@ To run the filesystem, run the following commands...
 ``` 
 git clone git@github.com:Nilando/endpoint_challenge.git
 cd endpoint_challenge
+cargo test
 cargo run
 ```
 
