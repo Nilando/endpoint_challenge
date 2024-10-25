@@ -1,5 +1,5 @@
-use std::fmt::Display;
 use super::path::Path;
+use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
 pub enum FileSystemError {

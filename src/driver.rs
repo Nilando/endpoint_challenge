@@ -1,7 +1,7 @@
-use super::fs::FileSystem;
 use super::cmd::Cmd;
+use super::fs::FileSystem;
 
-use std::io::{stdin, stdout, Read, BufRead, BufReader, BufWriter, Write};
+use std::io::{stdin, stdout, BufRead, BufReader, BufWriter, Read, Write};
 
 const HELP: &str = "
 A simple filesystem.
@@ -82,8 +82,8 @@ impl FileSystemDriver {
     fn cmd_loop(&mut self, buf_reader: impl BufRead) {
         for res in buf_reader.lines() {
             let line = res.unwrap();
-            if line.is_empty() { 
-                continue
+            if line.is_empty() {
+                continue;
             }
 
             match Cmd::try_from(line.as_str()) {
@@ -107,20 +107,18 @@ impl FileSystemDriver {
                     writeln!(self.writer, "{}", output);
                 }
             }
-            Err(err) => {
-                match cmd {
-                    Cmd::Delete(path) => {
-                        writeln!(self.writer, "Cannot delete {} - {}", path, err);
-                    }
-                    Cmd::Move { src, dest } => {
-                        writeln!(self.writer, "Cannot move {} {} - {}", src, dest, err);
-                    }
-                    Cmd::Create(path) => {
-                        writeln!(self.writer, "Cannot create {} - {}", path, err);
-                    }
-                    _ => {}
+            Err(err) => match cmd {
+                Cmd::Delete(path) => {
+                    writeln!(self.writer, "Cannot delete {} - {}", path, err);
                 }
-            }
+                Cmd::Move { src, dest } => {
+                    writeln!(self.writer, "Cannot move {} {} - {}", src, dest, err);
+                }
+                Cmd::Create(path) => {
+                    writeln!(self.writer, "Cannot create {} - {}", path, err);
+                }
+                _ => {}
+            },
         }
     }
 }

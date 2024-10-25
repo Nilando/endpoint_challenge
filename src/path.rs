@@ -4,14 +4,12 @@ use std::slice::IterMut;
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
 pub struct Path {
-    file_names: Vec<String>
+    file_names: Vec<String>,
 }
 
 impl Path {
     pub fn new() -> Self {
-        Self {
-            file_names: vec![]
-        }
+        Self { file_names: vec![] }
     }
 
     pub fn push_file(&mut self, file: String) {
@@ -44,7 +42,7 @@ impl From<Path> for String {
 
         output.pop();
 
-        output 
+        output
     }
 }
 
@@ -56,10 +54,7 @@ impl TryFrom<&str> for Path {
             return Ok(Self { file_names: vec![] });
         }
 
-        let file_names: Vec<String> = value
-            .split('/')
-            .map(|s| s.to_string())
-            .collect();
+        let file_names: Vec<String> = value.split('/').map(|s| s.to_string()).collect();
 
         for file_name in file_names.iter() {
             if file_name.len() == 0 {

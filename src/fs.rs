@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use super::path::Path;
 use super::cmd::Cmd;
 use super::error::FileSystemError;
+use super::path::Path;
+use std::collections::BTreeMap;
+use std::fmt::Display;
 
 struct Dir {
     path: Path,
@@ -13,7 +13,7 @@ impl Dir {
     fn new(path: Path) -> Self {
         Self {
             path,
-            entries: BTreeMap::new()
+            entries: BTreeMap::new(),
         }
     }
 
@@ -79,12 +79,9 @@ impl FileSystem {
                 let move_file_name = src.pop_file().unwrap();
 
                 // check if the dest exists before performing the move
-                self.access_dir(dest.clone(), |dir| Ok(()))?; 
+                self.access_dir(dest.clone(), |dir| Ok(()))?;
 
-                let move_dir: Dir = 
-                    self.access_dir(src, |dir| {
-                        Ok(dir.delete(&move_file_name)?)
-                    })?;
+                let move_dir: Dir = self.access_dir(src, |dir| Ok(dir.delete(&move_file_name)?))?;
 
                 self.access_dir(dest, |dir| {
                     dir.create_dir(move_file_name, move_dir)?;
@@ -119,7 +116,7 @@ impl FileSystem {
     /// May return PathDoesNotExist if path cannot be followed.
     ///
     /// Returns true if the final directory in the path exists, false it not.
-    fn access_dir<F, O>(&mut self, mut path: Path, cb: F) -> Result<O, FileSystemError> 
+    fn access_dir<F, O>(&mut self, mut path: Path, cb: F) -> Result<O, FileSystemError>
     where
         F: FnOnce(&mut Dir) -> Result<O, FileSystemError>,
     {
@@ -132,9 +129,7 @@ impl FileSystem {
                 Some(dir) => {
                     current_dir = dir;
                 }
-                None => {
-                    return Err(FileSystemError::PathDoesNotExist(path))
-                }
+                None => return Err(FileSystemError::PathDoesNotExist(path)),
             }
         }
 
@@ -171,7 +166,7 @@ mod tests {
     fn create_and_delete_directory() {
         let mut fs = FileSystem::new();
         let path = Path::try_from("test").unwrap();
-        
+
         fs.exec_cmd(Cmd::Create(path.clone())).unwrap();
 
         assert!(fs.root.entries.len() == 1);
@@ -188,7 +183,7 @@ mod tests {
         let mut fs = FileSystem::new();
         let path_a = Path::try_from("a").unwrap();
         let path_b = Path::try_from("b").unwrap();
-        
+
         fs.exec_cmd(Cmd::Create(path_a.clone())).unwrap();
         fs.exec_cmd(Cmd::Create(path_b.clone())).unwrap();
 
@@ -196,7 +191,11 @@ mod tests {
         assert!(fs.root.entries.get("a".into()).is_some());
         assert!(fs.root.entries.get("b".into()).is_some());
 
-        fs.exec_cmd(Cmd::Move { src: path_b, dest: path_a } ).unwrap();
+        fs.exec_cmd(Cmd::Move {
+            src: path_b,
+            dest: path_a,
+        })
+        .unwrap();
 
         assert!(fs.root.entries.len() == 1);
 
@@ -215,7 +214,7 @@ mod tests {
         let path_a = Path::try_from("a").unwrap();
         let path_b = Path::try_from("b").unwrap();
         let path_c = Path::try_from("c").unwrap();
-        
+
         fs.exec_cmd(Cmd::Create(path_a.clone())).unwrap();
         fs.exec_cmd(Cmd::Create(path_b.clone())).unwrap();
 
@@ -223,7 +222,10 @@ mod tests {
         assert!(fs.root.entries.get("a".into()).is_some());
         assert!(fs.root.entries.get("b".into()).is_some());
 
-        let res = fs.exec_cmd(Cmd::Move { src: path_b, dest: path_c.clone() } );
+        let res = fs.exec_cmd(Cmd::Move {
+            src: path_b,
+            dest: path_c.clone(),
+        });
 
         assert_eq!(res, Err(FileSystemError::PathDoesNotExist(path_c)));
         assert_eq!(fs.root.entries.len(), 2);
@@ -235,7 +237,7 @@ mod tests {
     fn delete_non_existent_file() {
         let mut fs = FileSystem::new();
         let path_a = Path::try_from("a").unwrap();
-        
+
         let res = fs.exec_cmd(Cmd::Delete(path_a.clone()));
 
         assert_eq!(res, Err(FileSystemError::PathDoesNotExist(path_a)));
@@ -246,7 +248,7 @@ mod tests {
         let mut fs = FileSystem::new();
         let path_a = Path::try_from("a").unwrap();
         let path_b = Path::try_from("a/b").unwrap();
-        
+
         fs.exec_cmd(Cmd::Create(path_a.clone())).unwrap();
         fs.exec_cmd(Cmd::Create(path_b.clone())).unwrap();
 
@@ -258,7 +260,11 @@ mod tests {
         let dir_b = dir_a.entries.get("b".into()).unwrap();
         assert!(dir_b.entries.len() == 0);
 
-        fs.exec_cmd(Cmd::Move { src: path_b, dest: Path::new() } ).unwrap();
+        fs.exec_cmd(Cmd::Move {
+            src: path_b,
+            dest: Path::new(),
+        })
+        .unwrap();
 
         assert_eq!(fs.root.entries.len(), 2);
         assert!(fs.root.entries.get("a".into()).is_some());
