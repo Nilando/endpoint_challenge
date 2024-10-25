@@ -1,4 +1,6 @@
-use super::fs::{FileSystem, Cmd};
+use super::fs::FileSystem;
+use super::cmd::Cmd;
+
 use std::io::{stdin, stdout, Read, BufRead, BufReader, BufWriter, Write};
 
 const HELP: &str = "

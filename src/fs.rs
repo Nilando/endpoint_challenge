@@ -1,160 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
-
-#[derive(Debug, PartialEq)]
-pub enum FileSystemError {
-    PathDoesNotExist(Path),
-    BadPath(String),
-    CmdNotFound(String),
-    InvalidCmdArgs(String),
-    FileAlreadyExists(Path),
-}
-
-impl Display for FileSystemError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::PathDoesNotExist(path) => {
-                write!(f, "{} does not exist", String::from(path.clone()))
-            }
-            Self::CmdNotFound(cmd) => {
-                write!(f, "command not found: {}", cmd)
-            }
-            Self::FileAlreadyExists(path) => {
-                write!(f, "{} already exists", String::from(path.clone()))
-            }
-            Self::InvalidCmdArgs(err) => {
-                write!(f, "{}", err)
-            }
-            Self::BadPath(err) => {
-                write!(f, "invalid path {}", err)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Hash, Eq, PartialEq, Clone)]
-pub struct Path {
-    file_names: Vec<String>
-}
-
-impl Path {
-    fn new() -> Self {
-        Self {
-            file_names: vec![]
-        }
-    }
-
-    fn push_file(&mut self, file: String) {
-        self.file_names.push(file);
-    }
-}
-
-impl Display for Path {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", String::from(self.clone()))
-    }
-}
-
-impl From<Path> for String {
-    fn from(value: Path) -> Self {
-        let mut output = String::new();
-
-        for file in value.file_names.iter() {
-            output.push_str(file);
-            output.push('/');
-        }
-
-        output.pop();
-
-        output 
-    }
-}
-
-impl TryFrom<&str> for Path {
-    type Error = FileSystemError;
-
-    fn try_from(value: &str) -> Result<Self, FileSystemError> {
-        if value == "/" {
-            return Ok(Self { file_names: vec![] });
-        }
-
-        let file_names: Vec<String> = value
-            .split('/')
-            .map(|s| s.to_string())
-            .collect();
-
-        for file_name in file_names.iter() {
-            if file_name.len() == 0 {
-                return Err(FileSystemError::BadPath(value.to_string()));
-            }
-        }
-
-        Ok(Self { file_names })
-    }
-}
-
-#[derive(Clone)]
-pub enum Cmd {
-    Move {
-        src: Path, 
-        dest: Path
-    },
-    Create(Path),
-    Delete(Path),
-    List,
-}
-
-impl TryFrom<&str> for Cmd {
-    type Error = FileSystemError;
-
-    fn try_from(value: &str) -> Result<Self, FileSystemError> {
-        let args: Vec<String> = value
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
-
-        match args[0].as_str() {
-            "MOVE" => {
-                if args.len() != 3 {
-                    return Err(FileSystemError::InvalidCmdArgs("usage: MOVE src dest".to_string()));
-                }
-
-                Ok(
-                    Cmd::Move {
-                        src: Path::try_from(args[1].as_str())?,
-                        dest: Path::try_from(args[2].as_str())?,
-                    }
-                )
-            }
-            "CREATE" => {
-                if args.len() != 2 {
-                    return Err(FileSystemError::InvalidCmdArgs("usage: CREATE file".to_string()));
-                }
-
-                let path = Path::try_from(args[1].as_str())?;
-
-                Ok(Cmd::Create(path))
-            }
-            "DELETE" => {
-                if args.len() != 2 {
-                    return Err(FileSystemError::InvalidCmdArgs("usage: DELETE file".to_string()));
-                }
-
-                let path = Path::try_from(args[1].as_str())?;
-
-                Ok(Cmd::Delete(path))
-            }
-            "LIST" => {
-                if args.len() != 1 {
-                    return Err(FileSystemError::InvalidCmdArgs("usage: LIST".to_string()));
-                }
-
-                Ok(Cmd::List)
-            }
-            cmd => Err(FileSystemError::CmdNotFound(cmd.to_string())),
-        }
-    }
-}
+use super::path::Path;
+use super::cmd::Cmd;
+use super::error::FileSystemError;
 
 struct Dir {
     path: Path,
@@ -228,7 +76,7 @@ impl FileSystem {
                 Ok(Some(output))
             }
             Cmd::Move { mut src, dest } => {
-                let move_file_name = src.file_names.pop().unwrap();
+                let move_file_name = src.pop_file().unwrap();
 
                 // check if the dest exists before performing the move
                 self.access_dir(dest.clone(), |dir| Ok(()))?; 
@@ -246,7 +94,7 @@ impl FileSystem {
             }
             Cmd::Create(mut path) => {
                 let new_dir = Dir::new(path.clone());
-                let new_file = path.file_names.pop().unwrap();
+                let new_file = path.pop_file().unwrap();
 
                 self.access_dir(path, |dir| {
                     dir.create_dir(new_file, new_dir)?;
@@ -255,7 +103,7 @@ impl FileSystem {
                 })
             }
             Cmd::Delete(mut path) => {
-                let file_name = path.file_names.pop().unwrap();
+                let file_name = path.pop_file().unwrap();
 
                 self.access_dir(path, |dir| {
                     dir.delete(&file_name)?;
@@ -278,7 +126,7 @@ impl FileSystem {
         let mut current_dir = &mut self.root;
         let mut current_path = Path::new();
 
-        for file_name in path.file_names.iter_mut() {
+        for file_name in path.iter_mut() {
             current_path.push_file(file_name.to_string());
             match current_dir.entries.get_mut(file_name) {
                 Some(dir) => {
