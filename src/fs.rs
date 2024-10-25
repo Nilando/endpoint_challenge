@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq)]
@@ -19,12 +19,14 @@ impl Display for FileSystemError {
             Self::CmdNotFound(cmd) => {
                 write!(f, "command not found: {}", cmd)
             }
-            Self::InvalidCmdArgs(err) 
-            | Self::BadPath(err) => {
+            Self::FileAlreadyExists(path) => {
+                write!(f, "{} already exists", String::from(path.clone()))
+            }
+            Self::InvalidCmdArgs(err) => {
                 write!(f, "{}", err)
             }
-            Self::FileAlreadyExists(path) => {
-                write!(f, "{} does not exist", String::from(path.clone()))
+            Self::BadPath(err) => {
+                write!(f, "invalid path {}", err)
             }
         }
     }
@@ -72,6 +74,10 @@ impl TryFrom<&str> for Path {
     type Error = FileSystemError;
 
     fn try_from(value: &str) -> Result<Self, FileSystemError> {
+        if value == "/" {
+            return Ok(Self { file_names: vec![] });
+        }
+
         let file_names: Vec<String> = value
             .split('/')
             .map(|s| s.to_string())
@@ -152,14 +158,14 @@ impl TryFrom<&str> for Cmd {
 
 struct Dir {
     path: Path,
-    entries: HashMap<String, Dir>,
+    entries: BTreeMap<String, Dir>,
 }
 
 impl Dir {
     fn new(path: Path) -> Self {
         Self {
             path,
-            entries: HashMap::new()
+            entries: BTreeMap::new()
         }
     }
 
@@ -385,5 +391,29 @@ mod tests {
         let res = fs.exec_cmd(Cmd::Delete(path_a.clone()));
 
         assert_eq!(res, Err(FileSystemError::PathDoesNotExist(path_a)));
+    }
+
+    #[test]
+    fn move_to_root() {
+        let mut fs = FileSystem::new();
+        let path_a = Path::try_from("a").unwrap();
+        let path_b = Path::try_from("a/b").unwrap();
+        
+        fs.exec_cmd(Cmd::Create(path_a.clone())).unwrap();
+        fs.exec_cmd(Cmd::Create(path_b.clone())).unwrap();
+
+        assert!(fs.root.entries.len() == 1);
+
+        let dir_a = fs.root.entries.get("a".into()).unwrap();
+        assert!(dir_a.entries.len() == 1);
+
+        let dir_b = dir_a.entries.get("b".into()).unwrap();
+        assert!(dir_b.entries.len() == 0);
+
+        fs.exec_cmd(Cmd::Move { src: path_b, dest: Path::new() } ).unwrap();
+
+        assert_eq!(fs.root.entries.len(), 2);
+        assert!(fs.root.entries.get("a".into()).is_some());
+        assert!(fs.root.entries.get("b".into()).is_some());
     }
 }

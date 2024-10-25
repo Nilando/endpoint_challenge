@@ -1,5 +1,5 @@
 use super::fs::{FileSystem, Cmd};
-use std::io::{stdin, BufRead, BufReader};
+use std::io::{stdin, stdout, Read, BufRead, BufReader, BufWriter, Write};
 
 const HELP: &str = "
 A simple filesystem.
@@ -27,13 +27,20 @@ For more information, try '--help'.
 
 pub struct FileSystemDriver {
     fs: FileSystem,
+    writer: Box<dyn Write>,
+}
 
+impl Default for FileSystemDriver {
+    fn default() -> Self {
+        Self::new(Box::new(BufWriter::new(stdout().lock())))
+    }
 }
 
 impl FileSystemDriver {
-    pub fn new() -> Self {
+    pub fn new(writer: Box<dyn Write>) -> Self {
         Self {
-            fs: FileSystem::new()
+            fs: FileSystem::new(),
+            writer,
         }
     }
 
@@ -43,14 +50,18 @@ impl FileSystemDriver {
             2 => {
                 let arg = &args[1];
                 if arg == "-h" || arg == "--help" {
-                    println!("{}", HELP);
+                    writeln!(self.writer, "{}", HELP);
                 }
 
                 let filepath = arg.clone();
                 self.run_file(filepath);
             }
-            _ => eprintln!("{}", USAGE),
+            _ => {
+                writeln!(self.writer, "{}", USAGE).unwrap();
+            }
         }
+
+        self.writer.flush();
     }
 
     pub fn run_file(&mut self, filepath: String) {
@@ -75,11 +86,15 @@ impl FileSystemDriver {
 
             match Cmd::try_from(line.as_str()) {
                 Ok(cmd) => {
-                    println!("{}", line);
+                    writeln!(self.writer, "{}", line);
                     self.exec_cmd(cmd)
                 }
-                Err(err) => eprintln!("{}", err)
-            }
+                Err(err) => {
+                    writeln!(self.writer, "{}", err);
+                }
+            };
+
+            self.writer.flush();
         }
     }
 
@@ -87,23 +102,73 @@ impl FileSystemDriver {
         match self.fs.exec_cmd(cmd.clone()) {
             Ok(ok) => {
                 if let Some(output) = ok {
-                    println!("{}", output);
+                    writeln!(self.writer, "{}", output);
                 }
             }
             Err(err) => {
                 match cmd {
                     Cmd::Delete(path) => {
-                        eprintln!("Cannot delete {} - {}", path, err)
+                        writeln!(self.writer, "Cannot delete {} - {}", path, err);
                     }
                     Cmd::Move { src, dest } => {
-                        eprintln!("Cannot move {} {} - {}", src, dest, err)
+                        writeln!(self.writer, "Cannot move {} {} - {}", src, dest, err);
                     }
                     Cmd::Create(path) => {
-                        eprintln!("Cannot create {} - {}", path, err)
+                        writeln!(self.writer, "Cannot create {} - {}", path, err);
                     }
                     _ => {}
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+
+    fn test_example(x: usize) {
+        let out_file = format!("./tests/test_example_{}.out", x);
+        let input_file = format!("./tests/test_example_{}.input", x);
+        let expect_file = format!("./tests/test_example_{}.expect", x);
+
+        {
+            let file = File::create(out_file.clone()).unwrap();
+            let writer = Box::new(BufWriter::new(file));
+            let mut driver = FileSystemDriver::new(writer);
+
+            driver.run_file(input_file.to_string());
+        }
+
+        let mut result = File::open(out_file).unwrap();
+        let mut expect = File::open(expect_file).unwrap();
+
+        let mut b1 = Vec::new();
+        let mut b2 = Vec::new();
+        result.read_to_end(&mut b1);
+        expect.read_to_end(&mut b2);
+
+        assert_eq!(b1, b2);
+    }
+
+    #[test]
+    fn test_example_1() {
+        test_example(1);
+    }
+
+    #[test]
+    fn test_example_2() {
+        test_example(2);
+    }
+
+    #[test]
+    fn test_example_3() {
+        test_example(3);
+    }
+
+    #[test]
+    fn test_example_4() {
+        test_example(4);
     }
 }

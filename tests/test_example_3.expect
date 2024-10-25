@@ -1,0 +1,15 @@
+usage: CREATE file
+usage: DELETE file
+usage: LIST
+usage: MOVE src dest
+command not found: BLAH
+DELETE blah
+Cannot delete blah - blah does not exist
+MOVE a blah
+Cannot move a blah - blah does not exist
+CREATE blah/blah
+Cannot create blah/blah - blah does not exist
+invalid path ////
+CREATE a
+CREATE a
+Cannot create a - a already exists

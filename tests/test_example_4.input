@@ -1,0 +1,19 @@
+CREATE a
+CREATE a/b
+CREATE a/b/c
+CREATE a/b/c/d
+CREATE a/b/c/d/e
+CREATE v
+CREATE v/w
+CREATE v/w/x
+CREATE v/w/x/y
+CREATE v/w/x/y/z
+LIST
+MOVE v a/b/c/d/e
+LIST
+MOVE a/b/c/d/e/v /
+LIST
+MOVE a v/w/x/y/z
+LIST
+MOVE v /
+LIST
