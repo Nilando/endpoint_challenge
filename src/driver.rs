@@ -6,11 +6,11 @@ A simple filesystem.
 
 Usage: ./filesystem [OPTIONS] COMMAND
 
-Providing no options runs the file system in interactive mode.
+Providing no command runs the file system in interactive mode.
 
 Command:
     FILE
-        The optionally provided FILE will be processed as a series of commands.
+        The FILE will be processed as a series of commands.
 
 Options:
     -h, --help
@@ -27,6 +27,7 @@ For more information, try '--help'.
 
 pub struct FileSystemDriver {
     fs: FileSystem,
+
 }
 
 impl FileSystemDriver {

@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FileSystemError {
     PathDoesNotExist(Path),
     BadPath(String),
     CmdNotFound(String),
     InvalidCmdArgs(String),
-    InvalidProgramArgs,
     FileAlreadyExists(Path),
 }
 
@@ -26,9 +25,6 @@ impl Display for FileSystemError {
             }
             Self::FileAlreadyExists(path) => {
                 write!(f, "{} does not exist", String::from(path.clone()))
-            }
-            _ => {
-                todo!()
             }
         }
     }
@@ -228,6 +224,9 @@ impl FileSystem {
             Cmd::Move { mut src, dest } => {
                 let move_file_name = src.file_names.pop().unwrap();
 
+                // check if the dest exists before performing the move
+                self.access_dir(dest.clone(), |dir| Ok(()))?; 
+
                 let move_dir: Dir = 
                     self.access_dir(src, |dir| {
                         Ok(dir.delete(&move_file_name)?)
@@ -354,5 +353,37 @@ mod tests {
         let dir_b = dir_a.entries.get("b".into()).unwrap();
 
         assert!(dir_b.entries.len() == 0);
+    }
+
+    #[test]
+    fn move_non_existent_dir() {
+        let mut fs = FileSystem::new();
+        let path_a = Path::try_from("a").unwrap();
+        let path_b = Path::try_from("b").unwrap();
+        let path_c = Path::try_from("c").unwrap();
+        
+        fs.exec_cmd(Cmd::Create(path_a.clone())).unwrap();
+        fs.exec_cmd(Cmd::Create(path_b.clone())).unwrap();
+
+        assert!(fs.root.entries.len() == 2);
+        assert!(fs.root.entries.get("a".into()).is_some());
+        assert!(fs.root.entries.get("b".into()).is_some());
+
+        let res = fs.exec_cmd(Cmd::Move { src: path_b, dest: path_c.clone() } );
+
+        assert_eq!(res, Err(FileSystemError::PathDoesNotExist(path_c)));
+        assert_eq!(fs.root.entries.len(), 2);
+        assert!(fs.root.entries.get("a".into()).is_some());
+        assert!(fs.root.entries.get("b".into()).is_some());
+    }
+
+    #[test]
+    fn delete_non_existent_file() {
+        let mut fs = FileSystem::new();
+        let path_a = Path::try_from("a").unwrap();
+        
+        let res = fs.exec_cmd(Cmd::Delete(path_a.clone()));
+
+        assert_eq!(res, Err(FileSystemError::PathDoesNotExist(path_a)));
     }
 }
