@@ -12,23 +12,26 @@ pub enum FileSystemError {
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Clone)]
-struct Path {
+pub struct Path {
     file_names: Vec<String>
-}
-
-impl Path {
-    const fn new() -> Self {
-        Self {
-            file_names: vec![]
-        }
-    }
 }
 
 impl TryFrom<&str> for Path {
     type Error = FileSystemError;
 
     fn try_from(value: &str) -> Result<Self, FileSystemError> {
-        todo!()
+        let file_names: Vec<String> = value
+            .split('/')
+            .map(|s| s.to_string())
+            .collect();
+
+        for file_name in file_names.iter() {
+            if file_name.len() == 0 {
+                return Err(FileSystemError::BadPath);
+            }
+        }
+
+        Ok(Self { file_names })
     }
 }
 
@@ -46,7 +49,52 @@ impl TryFrom<&str> for Cmd {
     type Error = FileSystemError;
 
     fn try_from(value: &str) -> Result<Self, FileSystemError> {
-        todo!()
+        let args: Vec<String> = value
+            .split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+
+        match args[0].as_str() {
+            "MOVE" => {
+                if args.len() != 3 {
+                    return Err(FileSystemError::InvalidCmdArgs);
+                }
+
+                Ok(
+                    Cmd::Move {
+                        src: Path::try_from(args[1].as_str())?,
+                        dest: Path::try_from(args[2].as_str())?,
+                    }
+                )
+            }
+            "CREATE" => {
+                if args.len() != 2 {
+                    return Err(FileSystemError::InvalidCmdArgs);
+                }
+
+                let path = Path::try_from(args[1].as_str())?;
+
+                Ok(Cmd::Create(path))
+            }
+            "DELETE" => {
+                if args.len() != 2 {
+                    return Err(FileSystemError::InvalidCmdArgs);
+                }
+
+                let path = Path::try_from(args[1].as_str())?;
+
+                Ok(Cmd::Delete(path))
+            }
+            "LIST" => {
+                if args.len() != 1 {
+                    return Err(FileSystemError::InvalidCmdArgs);
+                }
+
+                Ok(Cmd::List)
+            }
+            _ => Err(FileSystemError::CmdDoesNotExist),
+        }
     }
 }
 
@@ -148,11 +196,24 @@ impl FileSystem {
     /// May return PathDoesNotExist if path cannot be followed.
     ///
     /// Returns true if the final directory in the path exists, false it not.
-    fn access_dir<F, O>(&mut self, path: Path, cb: F) -> Result<O, FileSystemError> 
+    fn access_dir<F, O>(&mut self, mut path: Path, cb: F) -> Result<O, FileSystemError> 
     where
         F: FnOnce(&mut Dir) -> Result<O, FileSystemError>,
     {
-        todo!()
+        let mut current_dir = &mut self.root;
+
+        for file_name in path.file_names.iter_mut() {
+            match current_dir.entries.get_mut(file_name) {
+                Some(dir) => {
+                    current_dir = dir;
+                }
+                None => {
+                    return Err(FileSystemError::PathDoesNotExist)
+                }
+            }
+        }
+
+        cb(&mut current_dir)
     }
 
     fn traverse_dir(&self, dir: &Dir, depth: usize, cb: &mut impl FnMut(&str, usize)) {
