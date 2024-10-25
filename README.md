@@ -1,4 +1,4 @@
-# Endpoint FileSystem Challenege
+# Endpoint FileSystem Challenge
 
 This was a fun challenge, thank you for your consideration!
 
