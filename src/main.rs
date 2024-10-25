@@ -1,3 +1,8 @@
+use endpoint_challenge::FileSystemDriver;
+use std::env;
+
 fn main() {
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
+
+    FileSystemDriver::new().run_with_args(args);
 }
