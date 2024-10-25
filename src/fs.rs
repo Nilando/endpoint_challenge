@@ -4,18 +4,27 @@ use std::fmt::Display;
 #[derive(Debug)]
 pub enum FileSystemError {
     PathDoesNotExist(Path),
-    BadPath,
-    CmdDoesNotExist,
-    InvalidCmdArgs,
+    BadPath(String),
+    CmdNotFound(String),
+    InvalidCmdArgs(String),
     InvalidProgramArgs,
-    InternalError,
-    FileAlreadyExists,
+    FileAlreadyExists(Path),
 }
 
 impl Display for FileSystemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::PathDoesNotExist(path) => {
+                write!(f, "{} does not exist", String::from(path.clone()))
+            }
+            Self::CmdNotFound(cmd) => {
+                write!(f, "command not found: {}", cmd)
+            }
+            Self::InvalidCmdArgs(err) 
+            | Self::BadPath(err) => {
+                write!(f, "{}", err)
+            }
+            Self::FileAlreadyExists(path) => {
                 write!(f, "{} does not exist", String::from(path.clone()))
             }
             _ => {
@@ -74,7 +83,7 @@ impl TryFrom<&str> for Path {
 
         for file_name in file_names.iter() {
             if file_name.len() == 0 {
-                return Err(FileSystemError::BadPath);
+                return Err(FileSystemError::BadPath(value.to_string()));
             }
         }
 
@@ -105,7 +114,7 @@ impl TryFrom<&str> for Cmd {
         match args[0].as_str() {
             "MOVE" => {
                 if args.len() != 3 {
-                    return Err(FileSystemError::InvalidCmdArgs);
+                    return Err(FileSystemError::InvalidCmdArgs("usage: MOVE src dest".to_string()));
                 }
 
                 Ok(
@@ -117,7 +126,7 @@ impl TryFrom<&str> for Cmd {
             }
             "CREATE" => {
                 if args.len() != 2 {
-                    return Err(FileSystemError::InvalidCmdArgs);
+                    return Err(FileSystemError::InvalidCmdArgs("usage: CREATE file".to_string()));
                 }
 
                 let path = Path::try_from(args[1].as_str())?;
@@ -126,7 +135,7 @@ impl TryFrom<&str> for Cmd {
             }
             "DELETE" => {
                 if args.len() != 2 {
-                    return Err(FileSystemError::InvalidCmdArgs);
+                    return Err(FileSystemError::InvalidCmdArgs("usage: DELETE file".to_string()));
                 }
 
                 let path = Path::try_from(args[1].as_str())?;
@@ -135,12 +144,12 @@ impl TryFrom<&str> for Cmd {
             }
             "LIST" => {
                 if args.len() != 1 {
-                    return Err(FileSystemError::InvalidCmdArgs);
+                    return Err(FileSystemError::InvalidCmdArgs("usage: LIST".to_string()));
                 }
 
                 Ok(Cmd::List)
             }
-            _ => Err(FileSystemError::CmdDoesNotExist),
+            cmd => Err(FileSystemError::CmdNotFound(cmd.to_string())),
         }
     }
 }
@@ -160,7 +169,10 @@ impl Dir {
 
     fn create_dir(&mut self, name: String, dir: Dir) -> Result<(), FileSystemError> {
         if self.entries.get(&name).is_some() {
-            return Err(FileSystemError::FileAlreadyExists);
+            let mut bad_path = self.path.clone();
+            bad_path.push_file(name.clone());
+
+            return Err(FileSystemError::FileAlreadyExists(bad_path));
         }
 
         self.entries.insert(name, dir);

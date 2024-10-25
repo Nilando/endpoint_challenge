@@ -72,10 +72,11 @@ impl FileSystemDriver {
                 continue
             }
 
-            println!("{}", line);
-
             match Cmd::try_from(line.as_str()) {
-                Ok(cmd) => self.exec_cmd(cmd),
+                Ok(cmd) => {
+                    println!("{}", line);
+                    self.exec_cmd(cmd)
+                }
                 Err(err) => eprintln!("{}", err)
             }
         }
@@ -91,13 +92,13 @@ impl FileSystemDriver {
             Err(err) => {
                 match cmd {
                     Cmd::Delete(path) => {
-                        println!("Cannot delete {} - {}", path, err)
+                        eprintln!("Cannot delete {} - {}", path, err)
                     }
                     Cmd::Move { src, dest } => {
-                        println!("Cannot move {} {} - {}", src, dest, err)
+                        eprintln!("Cannot move {} {} - {}", src, dest, err)
                     }
                     Cmd::Create(path) => {
-                        println!("Cannot create {} - {}", path, err)
+                        eprintln!("Cannot create {} - {}", path, err)
                     }
                     _ => {}
                 }
