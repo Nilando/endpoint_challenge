@@ -56,30 +56,51 @@ impl FileSystemDriver {
         let file = std::fs::File::open(filepath).unwrap();
         let buf_reader = BufReader::new(file);
 
-        self.read_cmds(buf_reader);
+        self.cmd_loop(buf_reader);
     }
 
     pub fn run_repl(&mut self) {
         let buf_reader = BufReader::new(stdin());
 
-        self.read_cmds(buf_reader);
+        self.cmd_loop(buf_reader);
     }
 
-    fn run_cmd(&mut self, cmd: Cmd) {
-        match self.fs.exec_cmd(cmd) {
-            Ok(Some(output)) => {
-                println!("{}", output);
+    fn cmd_loop(&mut self, buf_reader: impl BufRead) {
+        for res in buf_reader.lines() {
+            let line = res.unwrap();
+            if line.is_empty() { 
+                continue
             }
-            Ok(None) => {},
-            Err(err) => eprintln!("{err:?}"),
+
+            println!("{}", line);
+
+            match Cmd::try_from(line.as_str()) {
+                Ok(cmd) => self.exec_cmd(cmd),
+                Err(err) => eprintln!("{}", err)
+            }
         }
     }
 
-    fn read_cmds(&mut self, buf_reader: impl BufRead) {
-        for line in buf_reader.lines() {
-            match Cmd::try_from(line.unwrap().as_str()) {
-                Ok(cmd) => self.run_cmd(cmd),
-                Err(err) => eprintln!("{err:?}")
+    fn exec_cmd(&mut self, cmd: Cmd) {
+        match self.fs.exec_cmd(cmd.clone()) {
+            Ok(ok) => {
+                if let Some(output) = ok {
+                    println!("{}", output);
+                }
+            }
+            Err(err) => {
+                match cmd {
+                    Cmd::Delete(path) => {
+                        println!("Cannot delete {} - {}", path, err)
+                    }
+                    Cmd::Move { src, dest } => {
+                        println!("Cannot move {} {} - {}", src, dest, err)
+                    }
+                    Cmd::Create(path) => {
+                        println!("Cannot create {} - {}", path, err)
+                    }
+                    _ => {}
+                }
             }
         }
     }
